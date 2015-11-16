@@ -120,5 +120,5 @@ from sklearn.svm import LinearSVC
 from sklearn import cross_validation
 from sklearn import metrics
 classifier = OneVsRestClassifier(svm.SVC(kernel='linear', C=1))
-scores = cross_validation.cross_val_score(classifier, learn_data, labels, cv=5) #, scoring='f1_weighted')
+scores = cross_validation.cross_val_score(classifier, learn_data, labels) #, scoring='f1_weighted')
 print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)

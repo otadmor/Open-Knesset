@@ -19,7 +19,8 @@ for i, pp in enumerate(pickle.load(open('pps.pkl', 'rb'))):
 		text += current_tag.text
 		current_tag = current_tag.findNext()
 
-	tags = pp['content_html']
+	tags = pp['tags']
+	
 	if len(tags) == 0:
 	    pp_without_tags.append({'text' : text, 'id' : pp['id']})
 	else:

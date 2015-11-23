@@ -1,3 +1,4 @@
+import numpy as np
 # print(__doc__)
 # 
 # import numpy as np
@@ -94,8 +95,8 @@ print >>sys.stderr, 'vectorizing labels'; sys.stderr.flush()
 tags = tags[:100]
 learn_data = learn_data[:100]
 
-
-labels = LabelBinarizer().fit_transform(tags)
+lb = LabelBinarizer()
+labels = lb.fit_transform(tags)
 
 
 #plt.figure(figsize=(8, 6))
@@ -106,6 +107,13 @@ labels = LabelBinarizer().fit_transform(tags)
 
 
 from sklearn.multiclass import OneVsRestClassifier
+def _OneVsRestClassifier_multilabel_score(self, X, y):
+    if self.multilabel_:
+        from sklearn.metrics import accuracy_score
+        return np.array(accuracy_score(yy, XX) for yy, XX in zip(y.transpose(), self.predict(X).transpose())).mean()
+    else:
+        return super(OneVsRestClassifier, self).score(X, y)
+OneVsRestClassifier.score = _OneVsRestClassifier_multilabel_score
 
 from sklearn.svm import LinearSVC
 
@@ -117,7 +125,22 @@ from sklearn.svm import LinearSVC
 #predicted_labels = trained_classifier.predict(learn_data[-10:])
 #print zip(predicted_labels, labels[-10:])
 
+
 from sklearn import cross_validation
+
+def _StratifiedKFold_multilabel_iter_test_indices(self):
+    n_folds = self.n_folds
+    if len(self.y.shape) > 1:
+        y1dim = [int(reduce(lambda o,n: o + str(n), yy, '0'),2) for yy in self.y]
+    else:
+        y1dim = self.y
+    idx = np.argsort(y1dim)
+    for i in range(n_folds):
+        yield idx[i::n_folds]
+cross_validation.StratifiedKFold._iter_test_indices = _StratifiedKFold_multilabel_iter_test_indices
+
+
+
 from sklearn import metrics
 classifier = OneVsRestClassifier(svm.SVC(kernel='linear', C=1))
 scores = cross_validation.cross_val_score(classifier, learn_data, labels) #, scoring='f1_weighted')

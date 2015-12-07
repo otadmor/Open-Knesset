@@ -95,9 +95,10 @@ print >>sys.stderr, 'vectorizing labels'; sys.stderr.flush()
 lb = LabelBinarizer()
 lb.fit(tags)
 
+TRIM_SAMPLES = 100
 
-tags = tags[:100]
-learn_data = learn_data[:100]
+tags = tags[:TRIM_SAMPLES]
+learn_data = learn_data[:TRIM_SAMPLES]
 
 labels = lb.transform(tags)
 
@@ -111,48 +112,56 @@ labels = lb.transform(tags)
 
 from sklearn.multiclass import OneVsRestClassifier
 def _OneVsRestClassifier_multilabel_score(self, X, y):
-    if self.multilabel_:
-        from sklearn.metrics import accuracy_score
-        
-        return np.array([accuracy_score(yy, XX) for yy, XX in zip(y.transpose(), self.predict(X).transpose())]).mean()
-    else:
-        return super(OneVsRestClassifier, self).score(X, y)
+	from sklearn.metrics import accuracy_score
+	# should use sklearn.metrics.precision_recall_fscore_support ???
+	yp = self.predict(X)
+	import pdb; pdb.set_trace()
+	a = accuracy_score(y, yp)
+	return a
+	
+	return super(OneVsRestClassifier, self).score(X, y)
+#    if self.multilabel_:
+#        from sklearn.metrics import accuracy_score
+#        
+#        return np.array([accuracy_score(yy, XX) for yy, XX in zip(y.transpose(), self.predict(X).transpose())]).mean()
+#    else:
+#        return super(OneVsRestClassifier, self).score(X, y)
 OneVsRestClassifier.score = _OneVsRestClassifier_multilabel_score
 
 from sklearn.svm import LinearSVC
 
 
-print >>sys.stderr, 'learning data'; sys.stderr.flush()
-classifier = OneVsRestClassifier(svm.SVC(kernel='linear'))
-trained_classifier = classifier.fit(learn_data[:-10], labels[:-10])
-print >>sys.stderr, 'classifying'; sys.stderr.flush()
-predicted_labels = trained_classifier.predict(learn_data[-10:])
-predicted_tags = lb.inverse_transform(predicted_labels)
+#print >>sys.stderr, 'learning data'; sys.stderr.flush()
+#classifier = OneVsRestClassifier(svm.SVC(kernel='linear'))
+#trained_classifier = classifier.fit(learn_data[:-10], labels[:-10])
+#print >>sys.stderr, 'classifying'; sys.stderr.flush()
+#predicted_labels = trained_classifier.predict(learn_data[-10:])
+#predicted_tags = lb.inverse_transform(predicted_labels)
+#
+#from pprint import pprint
+#for _predicted_tags, _tags in zip(predicted_tags, tags[-10:]):
+#	for _predicted_tag in _predicted_tags:
+#		print _predicted_tag[::-1], ",",
+#	print "-",
+#	for _tag in _tags:
+#		print _tag[::-1], ",",
+#	print ""
+#import pdb; pdb.set_trace()
 
-from pprint import pprint
-for _predicted_tags, _tags in zip(predicted_tags, tags[-10:]):
-	for _predicted_tag in _predicted_tags:
-		print _predicted_tag[::-1], ",",
-	print "-",
-	for _tag in _tags:
-		print _tag[::-1], ",",
-	print ""
-import pdb; pdb.set_trace()
+from sklearn import cross_validation
 
-#from sklearn import cross_validation
+def _StratifiedKFold_multilabel_iter_test_indices(self):
+    n_folds = self.n_folds
+    if len(self.y.shape) > 1:
+        y1dim = [int(reduce(lambda o,n: o + str(n), yy, '0'),2) for yy in self.y]
+    else:
+        y1dim = self.y
+    idx = np.argsort(y1dim)
+    for i in range(n_folds):
+        yield idx[i::n_folds]
+cross_validation.StratifiedKFold._iter_test_indices = _StratifiedKFold_multilabel_iter_test_indices
 
-#def _StratifiedKFold_multilabel_iter_test_indices(self):
-#    n_folds = self.n_folds
-#    if len(self.y.shape) > 1:
-#        y1dim = [int(reduce(lambda o,n: o + str(n), yy, '0'),2) for yy in self.y]
-#    else:
-#        y1dim = self.y
-#    idx = np.argsort(y1dim)
-#    for i in range(n_folds):
-#        yield idx[i::n_folds]
-#cross_validation.StratifiedKFold._iter_test_indices = _StratifiedKFold_multilabel_iter_test_indices
-
-#from sklearn import metrics
-#classifier = OneVsRestClassifier(svm.SVC(kernel='linear', C=1))
-#scores = cross_validation.cross_val_score(classifier, learn_data, labels) #, scoring='f1_weighted')
-#print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)
+from sklearn import metrics
+classifier = OneVsRestClassifier(svm.SVC(kernel='linear', C=1))
+scores = cross_validation.cross_val_score(classifier, learn_data, labels) #, scoring='f1_weighted')
+print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)

@@ -1,15 +1,22 @@
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
 import cPickle as pickle
 from collections import defaultdict
 import re
 
 split_re = re.compile(r'\s+', re.U)
 
-REMOVE = ['"', "'", '/', '\\', ',', '.', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '=', '_', '+', '\n', '[', ']', '{', '}', '|', '<', '>', '?', '~', ":", ';']
+#REMOVE = ['"', "'", '/', '\\', ',', '.', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '=', '_', '+', '\n', '[', ']', '{', '}', '|', '<', '>', '?', '~', ":", ';']
+REMOVE = [u'"', u"'", u'/', u'\\', u',', u'.', u'!', u'@', u'#', u'$', u'%', u'^', u'&', u'*', u'(', u')', u'-', u'=', u'_', u'+', u'\n', u'[', u']', u'{', u'}', u'|', u'<', u'>', u'?', u'~', u":", u';', u'–' , u'”', u'`']
+REMOVE.extend([unicode(i) for i in xrange(10)])
+
 REMOVE.extend([str(i) for i in xrange(10)])
 def make_histogram(t):
     dd = defaultdict(int)
-    for w in t.split():
-        dd[reduce(lambda o, s: o.replace(s, ''), REMOVE, w)] += 1
+#    for w in t.split():
+#        dd[reduce(lambda o, s: o.replace(s, ' '), REMOVE, w)] += 1
+    for w in reduce(lambda o, s: o.replace(s, u' '), REMOVE, t).split():
+        dd[w] += 1
     return dict(dd)
     
 

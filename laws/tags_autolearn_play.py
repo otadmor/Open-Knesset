@@ -69,9 +69,10 @@ def plot_subfigure(X, Y, subplot, title, transform):
 import numpy
 import cPickle as pickle
 import sys
-from sklearn import svm
+
 print >>sys.stderr, 'loading data'; sys.stderr.flush()
 keywords, data = pickle.load(open('histograms_with_tags.pkl', 'rb'))
+keywords = sorted(list(keywords))
 
 tags = numpy.array([a['tags'] for a in data])
 ids = [a['id'] for a in data]
@@ -80,27 +81,31 @@ keyword_dict = {}
 for i,w in enumerate(keywords):
 	keyword_dict[w] = i
 
-
-learn_data = []
-for a in data:
-	histogram = [0,] * len(keywords)
+learn_data = numpy.zeros((len(data), len(keywords)))
+for i,a in enumerate(data):
+	histogram = learn_data[i]
 	for k,v in a['histogram'].iteritems():
 		histogram[keyword_dict[k]] = v
-	learn_data.append(numpy.array(histogram))
-learn_data = numpy.array(learn_data)	
 
-from sklearn.preprocessing import LabelBinarizer
+from sklearn import svm
+#from sklearn.preprocessing import LabelBinarizer
+from sklearn.preprocessing import MultiLabelBinarizer
 print >>sys.stderr, 'vectorizing labels'; sys.stderr.flush()
 
-lb = LabelBinarizer()
-lb.fit(tags)
+#lb = LabelBinarizer()
+lb = MultiLabelBinarizer()
 
-TRIM_SAMPLES = 100
 
+TRIM_SAMPLES = len(tags) #/ 10
 tags = tags[:TRIM_SAMPLES]
 learn_data = learn_data[:TRIM_SAMPLES]
 
+lb.fit(tags)
 labels = lb.transform(tags)
+
+print "using\t",TRIM_SAMPLES,"samples"
+print "\t",len(keywords),"keywords"
+print "\t",len(lb.classes_),"tags"
 
 
 #plt.figure(figsize=(8, 6))
@@ -109,59 +114,47 @@ labels = lb.transform(tags)
 #plt.subplots_adjust(.04, .02, .97, .94, .09, .2)
 #plt.show()
 
-
 from sklearn.multiclass import OneVsRestClassifier
-def _OneVsRestClassifier_multilabel_score(self, X, y):
-	from sklearn.metrics import accuracy_score
-	# should use sklearn.metrics.precision_recall_fscore_support ???
-	yp = self.predict(X)
-	import pdb; pdb.set_trace()
-	a = accuracy_score(y, yp)
-	return a
-	
-	return super(OneVsRestClassifier, self).score(X, y)
-#    if self.multilabel_:
-#        from sklearn.metrics import accuracy_score
-#        
-#        return np.array([accuracy_score(yy, XX) for yy, XX in zip(y.transpose(), self.predict(X).transpose())]).mean()
-#    else:
-#        return super(OneVsRestClassifier, self).score(X, y)
-OneVsRestClassifier.score = _OneVsRestClassifier_multilabel_score
 
-from sklearn.svm import LinearSVC
+#single_svc = svm.SVC(kernel='polynomial', C=4)
 
+#single_svc = svm.SVC(kernel='linear', cache_size = 2048)
 
+single_svc = svm.LinearSVC()
+
+#single_svc = svm.SVC(kernel='rbf', cache_size = 2048)
+
+classifier = OneVsRestClassifier(single_svc)
+
+trained_classifier = classifier.fit(learn_data, labels)
+from sklearn.externals import joblib
+import cPickle as pickle
+import os
+try:
+    os.makedirs('classifier_data')
+except OSError, e:
+    pass
+joblib.dump(trained_classifier, 'classifier_data/linear_svc_classifier.jlb') 
+pickle.dump(lb, open("classifier_data/label_binarizer.pkl", "wb"))
 #print >>sys.stderr, 'learning data'; sys.stderr.flush()
-#classifier = OneVsRestClassifier(svm.SVC(kernel='linear'))
 #trained_classifier = classifier.fit(learn_data[:-10], labels[:-10])
 #print >>sys.stderr, 'classifying'; sys.stderr.flush()
 #predicted_labels = trained_classifier.predict(learn_data[-10:])
 #predicted_tags = lb.inverse_transform(predicted_labels)
 #
 #from pprint import pprint
-#for _predicted_tags, _tags in zip(predicted_tags, tags[-10:]):
+#for _predicted_tags, _tags, _d in zip(predicted_tags, tags[-10:], data[-10:]):
+#	print _d['id'],'--',
 #	for _predicted_tag in _predicted_tags:
 #		print _predicted_tag[::-1], ",",
 #	print "-",
 #	for _tag in _tags:
 #		print _tag[::-1], ",",
 #	print ""
-#import pdb; pdb.set_trace()
 
-from sklearn import cross_validation
+import IPython; IPython.embed()
 
-def _StratifiedKFold_multilabel_iter_test_indices(self):
-    n_folds = self.n_folds
-    if len(self.y.shape) > 1:
-        y1dim = [int(reduce(lambda o,n: o + str(n), yy, '0'),2) for yy in self.y]
-    else:
-        y1dim = self.y
-    idx = np.argsort(y1dim)
-    for i in range(n_folds):
-        yield idx[i::n_folds]
-cross_validation.StratifiedKFold._iter_test_indices = _StratifiedKFold_multilabel_iter_test_indices
-
-from sklearn import metrics
-classifier = OneVsRestClassifier(svm.SVC(kernel='linear', C=1))
-scores = cross_validation.cross_val_score(classifier, learn_data, labels) #, scoring='f1_weighted')
-print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)
+#from sklearn import cross_validation
+#from sklearn import metrics
+#scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring='f1_weighted')
+#print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)

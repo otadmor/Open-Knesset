@@ -88,12 +88,16 @@ for i,a in enumerate(data):
 		histogram[keyword_dict[k]] = v
 
 from sklearn import svm
-#from sklearn.preprocessing import LabelBinarizer
-from sklearn.preprocessing import MultiLabelBinarizer
+#
+
 print >>sys.stderr, 'vectorizing labels'; sys.stderr.flush()
 
-#lb = LabelBinarizer()
-lb = MultiLabelBinarizer()
+try:
+    from sklearn.preprocessing import MultiLabelBinarizer
+    lb = MultiLabelBinarizer()
+except ImportError, e:
+    from sklearn.preprocessing import LabelBinarizer
+    lb = LabelBinarizer()
 
 
 TRIM_SAMPLES = len(tags) #/ 10

@@ -87,7 +87,6 @@ for i,a in enumerate(data):
 	for k,v in a['histogram'].iteritems():
 		histogram[keyword_dict[k]] = v
 
-from sklearn import svm
 #
 
 print >>sys.stderr, 'vectorizing labels'; sys.stderr.flush()
@@ -110,6 +109,11 @@ labels = lb.transform(tags)
 print "using\t",TRIM_SAMPLES,"samples"
 print "\t",len(keywords),"keywords"
 print "\t",len(lb.classes_),"tags"
+metadata = learn_data.sum(axis=1)
+
+print "\t",metadata.mean(), "avg words in document"
+print "\t",metadata.max(), "biggest document"
+print "\t",metadata.min(), "smallest document"
 
 
 #plt.figure(figsize=(8, 6))
@@ -118,28 +122,107 @@ print "\t",len(lb.classes_),"tags"
 #plt.subplots_adjust(.04, .02, .97, .94, .09, .2)
 #plt.show()
 
-from sklearn.multiclass import OneVsRestClassifier
+from sklearn.multiclass import OneVsRestClassifier, OneVsOneClassifier
 
-#single_svc = svm.SVC(kernel='polynomial', C=4)
+#from sklearn.utils.validation import check_consistent_length
+from sklearn.multiclass import _fit_ovo_binary, check_consistent_length, np, Parallel, delayed
+class OneVsOneClassifierMultiLabel(OneVsOneClassifier):
 
-#single_svc = svm.SVC(kernel='linear', cache_size = 2048)
+    def fit(self, X, y):
+        y = np.asarray(y)
+        check_consistent_length(X, y)
 
-single_svc = svm.LinearSVC()
+        self.classes_ = np.arange(y.shape[1]) + 1
+        n_classes = self.classes_.shape[0]
+        self.estimators_ = Parallel(n_jobs=self.n_jobs)(
+            delayed(_fit_ovo_binary)(
+                self.estimator, X, self.classes_[i] * y[:,i] + self.classes_[j] * y[:,j], self.classes_[i], self.classes_[j])
+            for i in range(n_classes) for j in range(i + 1, n_classes))
+
+        return self
+
+    def predict(self, X):
+        Y = self.decision_function(X)
+
+        return self.classes_[Y.argmax(axis=1)]
+
+    def decision_function(self, X):
+        check_is_fitted(self, 'estimators_')
+        import pdb; pdb.set_trace()
+
+        n_samples = X.shape[0]
+        n_classes = self.classes_.shape[0]
+        votes = np.zeros((n_samples, n_classes, n_classes))
+
+        k = 0
+        for i in range(n_classes):
+            for j in range(i + 1, n_classes):
+                pred = self.estimators_[k].predict(X)
+                votes[:, i, j] += pred
+                k += 1
+        return votes
+
+from sklearn.pipeline import make_pipeline
+
+from sklearn import preprocessing
+
+from sklearn.feature_extraction.text import TfidfTransformer
+
+
+from sklearn import svm
+from sklearn import naive_bayes
+from sklearn import neighbors
+from sklearn import linear_model
+#single_classifier = svm.SVC(kernel='polynomial', C=4)
+
+#single_classifier = svm.SVC(kernel='linear', cache_size = 2048)
+
+#single_classifier = svm.LinearSVC()
+#single_classifier = naive_bayes.GaussianNB()
+single_classifier = naive_bayes.MultinomialNB()
+#single_classifier = naive_bayes.BernoulliNB()
 
 #single_svc = svm.SVC(kernel='rbf', cache_size = 2048)
 
-classifier = OneVsRestClassifier(single_svc)
+#single_classifier = make_pipeline(TfidfTransformer(), single_classifier)
 
-trained_classifier = classifier.fit(learn_data, labels)
-from sklearn.externals import joblib
-import cPickle as pickle
-import os
-try:
-    os.makedirs('classifier_data')
-except OSError, e:
-    pass
-joblib.dump(trained_classifier, 'classifier_data/linear_svc_classifier.jlb') 
-pickle.dump(lb, open("classifier_data/label_binarizer.pkl", "wb"))
+#classifier = OneVsRestClassifier(make_pipeline(preprocessing.StandardScaler(),single_classifier))
+
+#classifier = OneVsRestClassifier(single_classifier)
+
+classifier = OneVsOneClassifierMultiLabel(single_classifier)
+#classifier = neighbors.KNeighborsClassifier()
+#classifier = make_pipeline(TfidfTransformer(), neighbors.KNeighborsClassifier())
+#classifier = linear_model.Ridge()
+
+
+
+print "running", classifier
+TEST = True
+
+if not TEST:
+
+    trained_classifier = classifier.fit(learn_data, labels)
+    from sklearn.externals import joblib
+    import cPickle as pickle
+    import os
+    try:
+        os.makedirs('classifier_data')
+    except OSError, e:
+        pass
+    joblib.dump(trained_classifier, 'classifier_data/linear_svc_classifier.jlb') 
+    pickle.dump(lb, open("classifier_data/label_binarizer.pkl", "wb"))
+else:
+
+
+    from sklearn import cross_validation
+    from sklearn import metrics
+    scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring='f1_weighted')
+    print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)
+
+
+
+
 #print >>sys.stderr, 'learning data'; sys.stderr.flush()
 #trained_classifier = classifier.fit(learn_data[:-10], labels[:-10])
 #print >>sys.stderr, 'classifying'; sys.stderr.flush()
@@ -156,9 +239,6 @@ pickle.dump(lb, open("classifier_data/label_binarizer.pkl", "wb"))
 #		print _tag[::-1], ",",
 #	print ""
 
-import IPython; IPython.embed()
 
-#from sklearn import cross_validation
-#from sklearn import metrics
-#scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring='f1_weighted')
-#print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)
+
+import IPython; IPython.embed()

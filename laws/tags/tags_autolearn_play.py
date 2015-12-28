@@ -179,7 +179,7 @@ from sklearn import linear_model
 
 #single_classifier = svm.LinearSVC()
 #single_classifier = naive_bayes.GaussianNB()
-single_classifier = naive_bayes.MultinomialNB()
+#single_classifier = naive_bayes.MultinomialNB()
 #single_classifier = naive_bayes.BernoulliNB()
 
 #single_svc = svm.SVC(kernel='rbf', cache_size = 2048)
@@ -190,11 +190,10 @@ single_classifier = naive_bayes.MultinomialNB()
 
 #classifier = OneVsRestClassifier(single_classifier)
 
-classifier = OneVsOneClassifierMultiLabel(single_classifier)
-#classifier = neighbors.KNeighborsClassifier()
+#classifier = OneVsOneClassifierMultiLabel(single_classifier)
+classifier = neighbors.KNeighborsClassifier()
 #classifier = make_pipeline(TfidfTransformer(), neighbors.KNeighborsClassifier())
 #classifier = linear_model.Ridge()
-
 
 
 print "running", classifier
@@ -215,9 +214,71 @@ if not TEST:
 else:
 
 
-    from sklearn import cross_validation
     from sklearn import metrics
-    scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring='f1_weighted')
+    from functools import partial
+    f1_scorer_no_average = metrics.make_scorer(partial(metrics.f1_score, average=None))
+
+    def multilabel_score(estimator, X_test, y_test, scorer):
+        """Compute the score of an estimator on a given test set."""
+        if y_test is None:
+            score = scorer(estimator, X_test)
+        else:
+            score = scorer(estimator, X_test, y_test)
+#        if not isinstance(score, numbers.Number):
+#            raise ValueError("scoring must return a number, got %s (%s) instead."
+#                             % (str(score), type(score)))
+        return score
+    from sklearn import cross_validation
+    cross_validation._score = multilabel_score
+
+    def default_nan_prf_divide(numerator, denominator, metric, modifier, average, warn_for):
+        """Performs division and handles divide-by-zero.
+
+        On zero-division, sets the corresponding result elements to zero
+        and raises a warning.
+
+        The metric, modifier and average arguments are used only for determining
+        an appropriate warning.
+        """
+        result = numerator / denominator
+        mask = denominator == 0.0
+        if not np.any(mask):
+            return result
+
+        # remove infs
+        result[mask] = np.nan
+
+        # build appropriate warning
+        # E.g. "Precision and F-score are ill-defined and being set to 0.0 in
+        # labels with no predicted samples"
+        axis0 = 'sample'
+        axis1 = 'label'
+        if average == 'samples':
+            axis0, axis1 = axis1, axis0
+
+        if metric in warn_for and 'f-score' in warn_for:
+            msg_start = '{0} and F-score are'.format(metric.title())
+        elif metric in warn_for:
+            msg_start = '{0} is'.format(metric.title())
+        elif 'f-score' in warn_for:
+            msg_start = 'F-score is'
+        else:
+            return result
+
+        msg = ('{0} ill-defined and being set to np.nan {{0}} '
+               'no {1} {2}s.'.format(msg_start, modifier, axis0))
+        if len(mask) == 1:
+            msg = msg.format('due to')
+        else:
+            msg = msg.format('in {0}s with'.format(axis1))
+        warnings.warn(msg, UndefinedMetricWarning, stacklevel=2)
+        return result
+    from sklearn.metrics import classification
+    classification._prf_divide = default_nan_prf_divide
+
+    from sklearn import cross_validation
+    scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring=f1_scorer_no_average)# 'f1_weighted')
+    import IPython; IPython.embed()
     print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)
 
 

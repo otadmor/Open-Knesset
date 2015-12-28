@@ -2,8 +2,8 @@
 # -*- coding: UTF-8 -*-
 import cPickle as pickle
 
-#hebdepparser_path = "/home/o/otadmor/Downloads/hebdepparser"
-hebdepparser_path = "/home/someone/hebdepparser"
+hebdepparser_path = "/home/o/otadmor/Downloads/hebdepparser"
+#hebdepparser_path = "/home/someone/hebdepparser"
 import subprocess
 
 def parse_lang_tree_popen(text):

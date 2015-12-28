@@ -162,35 +162,90 @@ class OneVsOneClassifierMultiLabel(OneVsOneClassifier):
                 k += 1
         return votes
 
+class KoppelSameAuthorClassifier(object):
+    def __init__(self):
+        super(KoppelSameAuthorClassifier, self).__init__()
+        self.class_data = None
+        self.orig_data = None
+        self.orig_class = None
+
+
+    def fit(self, X, y):
+        self.class_data = np.mat(y).transpose() * np.mat(X)
+        self.orig_data = X
+        self.orig_class = y
+
+    def predict(self, X):
+        impostors_amount = 5
+        top_similar = 3
+        for x in X:
+            for i, y in enumerate(self.class_data):
+                impostors = self.orig_data[np.array(self.orig_class[:,i] == 0).flatten()]
+                # pick random top 5 impostors
+                np.random.shuffle(impostors)
+                impostors = impostors[:impostors_amount]
+
+                distances = self.cals_distances(impostors, x, y)
+                sorted_distances = distances.argsort()
+
+                # top 3 similar
+                same_author = (same_author[:top_similar] == impostors_amount).any()
+
+
+    def cals_distances(impostors, x, y):
+        # impostors[:, np.newaxis] - y # only if all y are sent (y is two dimensional matrix)
+        y_distance = np.power(impostors - y, 2).sum(axis = -1)
+        x_distance = np.power(impostors - x, 2).sum(axis = -1)
+        imposters_two_way_distance = np.sqrt(y_distance) * np.sqrt(x_distance)
+
+        two_way_distance = np.power(x - y, 2).sum(axis = -1)
+
+
+	return np.append(imposters_two_way_distance,two_way_distance)
+	
+
 from sklearn.pipeline import make_pipeline
 
 from sklearn import preprocessing
 
 from sklearn.feature_extraction.text import TfidfTransformer
 
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.feature_selection import SelectFromModel
 
 from sklearn import svm
 from sklearn import naive_bayes
 from sklearn import neighbors
 from sklearn import linear_model
+from sklearn import neural_network
 #single_classifier = svm.SVC(kernel='polynomial', C=4)
 
 #single_classifier = svm.SVC(kernel='linear', cache_size = 2048)
 
+single_classifier = neural_network.MLPClassifier(hidden_layer_sizes=10 * (100,))
+
 #single_classifier = svm.LinearSVC()
+
 #single_classifier = naive_bayes.GaussianNB()
-single_classifier = naive_bayes.MultinomialNB()
+#single_classifier = naive_bayes.MultinomialNB()
 #single_classifier = naive_bayes.BernoulliNB()
 
 #single_svc = svm.SVC(kernel='rbf', cache_size = 2048)
 
 #single_classifier = make_pipeline(TfidfTransformer(), single_classifier)
+single_classifier = make_pipeline(preprocessing.StandardScaler(), single_classifier)
+#single_classifier = make_pipeline(SelectFromModel(ExtraTreesClassifier(), prefit = False), TfidfTransformer(), single_classifier)
 
 #classifier = OneVsRestClassifier(make_pipeline(preprocessing.StandardScaler(),single_classifier))
 
 #classifier = OneVsRestClassifier(single_classifier)
+#classifier = make_pipeline(SelectFromModel(ExtraTreesClassifier(), prefit = False), OneVsRestClassifier(single_classifier))
 
-classifier = OneVsOneClassifierMultiLabel(single_classifier)
+#classifier = make_pipeline(SelectFromModel(ExtraTreesClassifier(), prefit = False), single_classifier)
+
+classifier = single_classifier
+
+#classifier = OneVsOneClassifierMultiLabel(single_classifier)
 #classifier = neighbors.KNeighborsClassifier()
 #classifier = make_pipeline(TfidfTransformer(), neighbors.KNeighborsClassifier())
 #classifier = linear_model.Ridge()

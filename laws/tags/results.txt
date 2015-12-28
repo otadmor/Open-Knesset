@@ -1,6 +1,11 @@
 features		classifier		score
 NN_JJ_VB_NNT_BN_NNP_TTL	OneVsRest_LinearSVC	0.65 +- 0.13
-NN_JJ_VB_NNT_BN		OneVsRest_LinearSVC	0.64 +- 0.11
+NN_JJ_VB_NNT_BN_NNP_TTL	OneVsRest_LinearSVC	0.65 +- 0.13
+NN_JJ_VB_NNT_BN		OneVsRest_InfoGainFilter_TfidfTransformer_LinearSVC	0.58 +- 0.04
+NN_JJ_VB_NNT_BN		InfoGainFilter_OneVsRest_TfidfTransformer_LinearSVC	0.64 +- 0.08
+NN_JJ_VB_NNT_BN		InfoGainFilter_OneVsRest_StandardScaler_LinearSVC	0.50 +- 0.13
+NN_JJ_VB_NNT_BN		InfoGainFilter_StandardScaler_MLPClassifier_10_levels_100_each	0.48 +- 0.08
+NN_JJ_VB_NNT_BN		StandardScaler_MLPClassifier_10_levels_100_each	0.52 +- 0.11
 NN_JJ_VB_NNT_BN_NNP_TTL	OneVsRest_GausianNB	0.51 +- 0.12
 NN_JJ_VB_NNT_BN_NNP_TTL	OneVsRest_MultinomialNB	0.44 +- 0.40
 NN_JJ_VB_NNT_BN_NNP_TTL	OneVsRest_BernoulliNB	0.08 +- 0.00

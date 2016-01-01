@@ -222,9 +222,9 @@ from sklearn import neural_network
 
 #single_classifier = svm.SVC(kernel='linear', cache_size = 2048)
 
-single_classifier = neural_network.MLPClassifier(hidden_layer_sizes=10 * (100,))
+#single_classifier = neural_network.MLPClassifier(hidden_layer_sizes=10 * (100,))
 
-#single_classifier = svm.LinearSVC()
+single_classifier = svm.LinearSVC()
 
 #single_classifier = naive_bayes.GaussianNB()
 #single_classifier = naive_bayes.MultinomialNB()
@@ -232,33 +232,34 @@ single_classifier = neural_network.MLPClassifier(hidden_layer_sizes=10 * (100,))
 
 #single_svc = svm.SVC(kernel='rbf', cache_size = 2048)
 
-#single_classifier = make_pipeline(TfidfTransformer(), single_classifier)
-single_classifier = make_pipeline(preprocessing.StandardScaler(), single_classifier)
+single_classifier = make_pipeline(TfidfTransformer(), single_classifier)
+#single_classifier = make_pipeline(preprocessing.StandardScaler(), single_classifier)
 #single_classifier = make_pipeline(SelectFromModel(ExtraTreesClassifier(), prefit = False), TfidfTransformer(), single_classifier)
 
 #classifier = OneVsRestClassifier(make_pipeline(preprocessing.StandardScaler(),single_classifier))
 
-#classifier = OneVsRestClassifier(single_classifier)
+classifier = OneVsRestClassifier(single_classifier)
 #classifier = make_pipeline(SelectFromModel(ExtraTreesClassifier(), prefit = False), OneVsRestClassifier(single_classifier))
 
 #classifier = make_pipeline(SelectFromModel(ExtraTreesClassifier(), prefit = False), single_classifier)
 
-classifier = single_classifier
+#classifier = single_classifier
 
 #classifier = OneVsOneClassifierMultiLabel(single_classifier)
 
-classifier = neighbors.KNeighborsClassifier()
+#classifier = neighbors.KNeighborsClassifier()
 
 #classifier = make_pipeline(TfidfTransformer(), neighbors.KNeighborsClassifier())
 #classifier = linear_model.Ridge()
 
 
 print "running", classifier
-TEST = True
+TEST = False
 
 if not TEST:
 
     trained_classifier = classifier.fit(learn_data, labels)
+
     from sklearn.externals import joblib
     import cPickle as pickle
     import os
@@ -281,13 +282,17 @@ else:
             score = scorer(estimator, X_test)
         else:
             score = scorer(estimator, X_test, y_test)
-#        if not isinstance(score, numbers.Number):
-#            raise ValueError("scoring must return a number, got %s (%s) instead."
-#                             % (str(score), type(score)))
-        return score
+        if getattr(scorer, 'keywords', {}).get('average', None) is None:
+            return list(score)
+        elif not isinstance(score, numbers.Number):
+            raise ValueError("scoring must return a number, got %s (%s) instead."
+                             % (str(score), type(score)))
+        return list(score)
     from sklearn import cross_validation
     cross_validation._score = multilabel_score
 
+    import warnings
+    from sklearn.metrics.base import UndefinedMetricWarning
     def default_nan_prf_divide(numerator, denominator, metric, modifier, average, warn_for):
         """Performs division and handles divide-by-zero.
 
@@ -297,13 +302,16 @@ else:
         The metric, modifier and average arguments are used only for determining
         an appropriate warning.
         """
-        result = numerator / denominator
+        result = numerator.astype(np.float_) / denominator.astype(np.float_)
         mask = denominator == 0.0
         if not np.any(mask):
             return result
 
         # remove infs
-        result[mask] = np.nan
+        if average is None:
+            result[mask] = np.nan
+        else:
+            result[mask] = 0.0
 
         # build appropriate warning
         # E.g. "Precision and F-score are ill-defined and being set to 0.0 in
@@ -330,11 +338,42 @@ else:
             msg = msg.format('in {0}s with'.format(axis1))
         warnings.warn(msg, UndefinedMetricWarning, stacklevel=2)
         return result
+
     from sklearn.metrics import classification
+    _precision_recall_fscore_support = classification.precision_recall_fscore_support
+    def precision_recall_fscore_support(*args, **kargs):
+        precision, recall, f_score, true_sum = _precision_recall_fscore_support(*args, **kargs)
+        if kargs.get('average', None) is None:
+            f_score[np.isnan(precision) * np.isnan(recall)] = 1.0 # both true_sum and pred_sum are 0
+        return precision, recall, f_score, true_sum
+    classification.precision_recall_fscore_support = precision_recall_fscore_support
     classification._prf_divide = default_nan_prf_divide
 
     from sklearn import cross_validation
-    scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring=f1_scorer_no_average)# 'f1_weighted')
+    from sklearn.utils.multiclass import type_of_target
+    from copy import deepcopy
+    _cross_val_score = cross_validation.cross_val_score
+    def cross_val_score(estimator, X, y=None, *args, **kargs):
+        y_type = type_of_target(y)
+        positive_example_amount = y.sum(axis=0)
+        error = ""
+        if (positive_example_amount < kargs['cv']).any():
+            error = str((positive_example_amount < kargs['cv']).sum()) + " : too little examples for " + str(np.where(positive_example_amount < kargs['cv'])) + str(positive_example_amount[np.where(positive_example_amount < kargs['cv'])])
+        if (positive_example_amount > y.shape[0] - kargs['cv']).any():
+            error += str((positive_example_amount > y.shape[0] - kargs['cv']).sum()) + " : too many examples for " + str(np.where(positive_example_amount > y.shape[0] - kargs['cv'])) + str(positive_example_amount[np.where(positive_example_amount > y.shape[0] - kargs['cv'])])
+        if error:
+            raise Exception(error)
+        if y_type.startswith('multilabel') and isinstance(estimator, OneVsRestClassifier):
+            res = []
+            for yy in y.transpose():
+                res.append(_cross_val_score(deepcopy(estimator.estimator), X, yy, *args, **kargs))
+            import pdb; pdb.set_trace()
+        else:
+            res = _cross_val_score(estimator, X, y, *args, **kargs)
+        return np.array(list(res))
+    cross_validation.cross_val_score = cross_val_score
+
+    scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring=f1_scorer_no_average, cv=10)# 'f1_weighted')
     import IPython; IPython.embed()
     print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)
 

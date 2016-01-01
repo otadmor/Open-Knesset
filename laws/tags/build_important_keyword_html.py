@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
 import numpy
+import numpy as np
 import re
 from functools import partial
 from sklearn.externals import joblib
@@ -11,6 +12,9 @@ keywords, data = pickle.load(open('histograms_with_tags.pkl', 'rb'))
 pp_with_tags = pickle.load(open('pp_with_tags.pkl', "rb"))
 trained_classifier = joblib.load('classifier_data/linear_svc_classifier.jlb') 
 keywords = numpy.array(sorted(list(keywords)))
+
+coefs = np.vstack([e.steps[-1][1].coef_ for e in trained_classifier.estimators_])
+
 import os
 import codecs
 try:
@@ -61,38 +65,38 @@ def output_tag(class_file, w, estimator_max, estimator_min, weight, hyperlink = 
     else:
         print >>class_file, u"<span style='color:#000000;'>" + w + u"</span>&nbsp;"
 
-def output_word(class_file, w, estimator_max, estimator_min, estimator, keyword_dict, hyperlink = False):
-    weight = estimator.coef_[0, keyword_dict[w]]
+def output_word(class_file, w, estimator_max, estimator_min, coefs, keyword_dict, hyperlink = False):
+    weight = coefs[keyword_dict[w]]
     pre = post = ''
     if weight > 0 and estimator_max != 0:
         weight /= estimator_max
         if weight > 0.05 and hyperlink:
-            pre = u"<a href='../keywords/" + w.replace(u'/', u' ') + u".html' title='" + str(estimator.coef_[0, keyword_dict[w]]) + u"'>"
+            pre = u"<a href='../keywords/" + w.replace(u'/', u' ') + u".html' title='" + str(coefs[keyword_dict[w]]) + u"'>"
             post = u"</a>"
         print >>class_file, pre + u"<span style='color:#00%02X00;'>" % (int(255 * weight),) + w + u"</span>" + post + "&nbsp;"
     elif weight < 0 and estimator_min != 0:
         weight /= estimator_min
         if weight > 0.05 and hyperlink:
-            pre = u"<a href='../keywords/" + w.replace(u'/', u' ') + u".html' title='" + str(estimator.coef_[0, keyword_dict[w]]) + u"'>"
+            pre = u"<a href='../keywords/" + w.replace(u'/', u' ') + u".html' title='" + str(coefs[keyword_dict[w]]) + u"'>"
             post = u"</a>"
         print >>class_file, pre + u"<span style='color:#%02X0000;'>" % (int(255 * weight),) + w + u"</span>" + post + "&nbsp;"
     else:
         print >>class_file, u"<span style='color:#000000;'>" + w + u"</span>&nbsp;"
 
 
-def format_word(w, estimator_max, estimator_min, estimator, keyword_dict, hyperlink = False):
-    weight = estimator.coef_[0, keyword_dict[w]]
+def format_word(w, estimator_max, estimator_min, coefs, keyword_dict, hyperlink = False):
+    orig_Weight = weight = coefs[keyword_dict[w]]
     pre = post = ''
     if weight > 0 and estimator_max != 0:
         weight /= estimator_max
         if hyperlink:
-            pre = u"<a href='../keywords/" + w.replace(u'/', u' ') + u".html' title='" + str(estimator.coef_[0, keyword_dict[w]]) + u"'>"
+            pre = u"<a href='../keywords/" + w.replace(u'/', u' ') + u".html' title='" + str(orig_Weight) + u"'>"
             post = u"</a>"
         v = u"<span style='color:#00%02X00;'>" % (int(255 * weight),) + w + u"</span>"
     elif weight < 0 and estimator_min != 0:
         weight /= estimator_min
         if hyperlink:
-            pre = u"<a href='../keywords/" + w.replace(u'/', u' ') + u".html' title='" + str(estimator.coef_[0, keyword_dict[w]]) + u"'>"
+            pre = u"<a href='../keywords/" + w.replace(u'/', u' ') + u".html' title='" + str(orig_Weight) + u"'>"
             post = u"</a>"
         v = u"<span style='color:#%02X0000;'>" % (int(255 * weight),) + w + u"</span>"
     else:
@@ -101,10 +105,10 @@ def format_word(w, estimator_max, estimator_min, estimator, keyword_dict, hyperl
 
 
 ATTR_AMOUNT = 10
-important_keywords = keywords[numpy.abs(trained_classifier.coef_).argsort()[:,-ATTR_AMOUNT:]]
+important_keywords = keywords[numpy.abs(coefs).argsort()[:,-ATTR_AMOUNT:]]
 
 MAX_RE_GROUP = 100
-def create_re(estimator_max, estimator_min, estimator, keyword_dict):
+def create_re(estimator_max, estimator_min, coefs, keyword_dict):
     #return ("|".join(p) for p in zip(*(
     #        (
     #            u"(?P<pre_%d>\\b)%s(?P<post_%d>\\b)" % (i, re.escape(k), i, ), 
@@ -116,9 +120,9 @@ def create_re(estimator_max, estimator_min, estimator, keyword_dict):
     #))
 
     return {        
-        k : format_word(k, estimator_max, estimator_min, estimator, keyword_dict, hyperlink = True)
+        k : format_word(k, estimator_max, estimator_min, coefs, keyword_dict, hyperlink = True)
         for k 
-        in keywords[numpy.where(estimator.coef_[0] != 0)]
+        in keywords[numpy.where(coefs != 0)]
 
     }
 ALLOWED_PRELETTERS = 3
@@ -143,14 +147,14 @@ for i, (class_name, important_keyword_for_class, estimator) in enumerate(zip(lb.
     print >>class_file, u"<html dir='rtl'><head><title>Keyword Explanation for Class " + class_name + u"</title></head><body><meta http-equiv='Content-Type' content='text/html;charset=UTF-8'>"
     print >>class_file, u"<h1>" + class_name + u"</h1><br/>"
     print >>class_file, u"<h2>Most influencing words</h2>"
-    estimator_min, estimator_max = estimator.coef_[0].min(), estimator.coef_[0].max()
+    estimator_min, estimator_max = coefs[i,:].min(), coefs[i,:].max()
     for keyword in important_keyword_for_class:
-        output_word(class_file, keyword, estimator_max, estimator_min, estimator, keyword_dict)
-        print >>class_file, u"(", str(estimator.coef_[0, keyword_dict[keyword]]), u")<br/>"
+        output_word(class_file, keyword, estimator_max, estimator_min, coefs[i], keyword_dict)
+        print >>class_file, u"(", str(coefs[i,keyword_dict[keyword]]), u")<br/>"
 
 #    tag_pattern, tag_replacement_pattern = create_re(estimator_max, estimator_min, estimator, keyword_dict)    
 #    tag_re = re.compile(tag_pattern, re.MULTILINE | re.UNICODE)
-    replacements = create_re(estimator_max, estimator_min, estimator, keyword_dict)
+    replacements = create_re(estimator_max, estimator_min, coefs[i], keyword_dict)
     replacements_re = re.compile('|'.join(('|'.join((u'\\b%s%s\\b' % (u'\\w' * i, p,) for p in replacements.iterkeys())) for i in xrange(ALLOWED_PRELETTERS + 1))), re.UNICODE)
     print >>class_file, u"<table border='1'>"
     for doc in doc_in_class[class_name]:

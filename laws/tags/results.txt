@@ -10,6 +10,7 @@ NN_JJ_VB_NNT_BN_NNP_TTL	OneVsRest_GausianNB	0.51 +- 0.12
 NN_JJ_VB_NNT_BN_NNP_TTL	OneVsRest_MultinomialNB	0.44 +- 0.40
 NN_JJ_VB_NNT_BN_NNP_TTL	OneVsRest_BernoulliNB	0.08 +- 0.00
 NN_JJ_VB_NNT_BN_NNP_TTL	KNeighborsClassifier	0.35 +- 0.05
+NN_JJ_VB_NNT_BN_NNP_TTL	OneVsRest_TfidfTransformer_LinearSVC_10folds	0.74 +- 0.34
 NN_JJ_VB_NNT_BN_NNP_TTL	OneVsRest_TfidfTransformer_LinearSVC	0.64 +- 0.10
 NN_JJ_VB_NNT_BN		OneVsRest_TfidfTransformer_LinearSVC	0.64 +- 0.10
 NN_JJ_VB_NNT_BN_NNP_TTL	TfidfTransformer_KNeighborsClassifier	0.47 +- 0.03 very fast

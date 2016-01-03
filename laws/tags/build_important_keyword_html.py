@@ -169,9 +169,9 @@ for i, (class_name, important_keyword_for_class, estimator) in enumerate(zip(lb.
     print >>class_file, u"</table></body></html>"
     class_file.close()
 
-coef_abs = numpy.abs(trained_classifier.coef_)
+coef_abs = numpy.abs(coefs)
 sorted_keywords = coef_abs.argsort(axis = 0)
-min_weight, max_weight = trained_classifier.coef_.min(axis = 1), trained_classifier.coef_.max(axis = 1)
+min_weight, max_weight = coefs.min(axis = 1), coefs.max(axis = 1)
 for keyword_count, i in enumerate(coef_abs.sum(axis = 0).argsort()[::-1]):
     keyword = keywords[i]
     print "keyword", str(keyword_count), "/", str(len(keywords)), "(", str(i), ")"
@@ -179,7 +179,7 @@ for keyword_count, i in enumerate(coef_abs.sum(axis = 0).argsort()[::-1]):
     print >>keyword_file, u"<html dir='rtl'><head><title>Tag Explanation for Keyword " + keyword + u"</title></head><body><meta http-equiv='Content-Type' content='text/html;charset=UTF-8'>"
     print >>keyword_file, u"<h1>" + keyword + u"</h1><br/>"
     print >>keyword_file, u"<h2>Most influenced tags</h2>"
-    weights = trained_classifier.coef_[:,i]
+    weights = coefs[:,i]
     class_keywords = sorted_keywords[::-1,i]
 
     for class_name, weight, max_weight_, min_weight_ in zip(lb.classes_[class_keywords], weights[class_keywords], max_weight[class_keywords], min_weight[class_keywords]):

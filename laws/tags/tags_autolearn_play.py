@@ -254,7 +254,7 @@ classifier = OneVsRestClassifier(single_classifier)
 
 
 print "running", classifier
-TEST = False
+TEST = True
 
 if not TEST:
 
@@ -353,7 +353,7 @@ else:
     from sklearn.utils.multiclass import type_of_target
     from copy import deepcopy
     _cross_val_score = cross_validation.cross_val_score
-    def cross_val_score(estimator, X, y=None, *args, **kargs):
+    def cross_val_score_one_vs_all_per_class(estimator, X, y=None, *args, **kargs):
         y_type = type_of_target(y)
         positive_example_amount = y.sum(axis=0)
         error = ""
@@ -361,8 +361,8 @@ else:
             error = str((positive_example_amount < kargs['cv']).sum()) + " : too little examples for " + str(np.where(positive_example_amount < kargs['cv'])) + str(positive_example_amount[np.where(positive_example_amount < kargs['cv'])])
         if (positive_example_amount > y.shape[0] - kargs['cv']).any():
             error += str((positive_example_amount > y.shape[0] - kargs['cv']).sum()) + " : too many examples for " + str(np.where(positive_example_amount > y.shape[0] - kargs['cv'])) + str(positive_example_amount[np.where(positive_example_amount > y.shape[0] - kargs['cv'])])
-        if error:
-            raise Exception(error)
+#        if error:
+#            raise Exception(error)
         if y_type.startswith('multilabel') and isinstance(estimator, OneVsRestClassifier):
             res = []
             for yy in y.transpose():
@@ -371,9 +371,9 @@ else:
         else:
             res = _cross_val_score(estimator, X, y, *args, **kargs)
         return np.array(list(res))
-    cross_validation.cross_val_score = cross_val_score
+#    cross_validation.cross_val_score = cross_val_score_one_vs_all_per_class
 
-    scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring=f1_scorer_no_average, cv=10)# 'f1_weighted')
+    scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring=f1_scorer_no_average, cv=3)# 'f1_weighted')
     import IPython; IPython.embed()
     print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)
 

@@ -211,7 +211,7 @@ from sklearn import preprocessing
 from sklearn.feature_extraction.text import TfidfTransformer
 
 from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.feature_selection import SelectFromModel
+#from sklearn.feature_selection import SelectFromModel
 
 from sklearn import svm
 from sklearn import naive_bayes
@@ -239,6 +239,11 @@ single_classifier = make_pipeline(TfidfTransformer(), single_classifier)
 #classifier = OneVsRestClassifier(make_pipeline(preprocessing.StandardScaler(),single_classifier))
 
 classifier = OneVsRestClassifier(single_classifier)
+
+# learn_data = preprocessing.scale(learn_data)
+
+#classifier = make_pipeline(preprocessing.StandardScaler(), classifier)
+
 #classifier = make_pipeline(SelectFromModel(ExtraTreesClassifier(), prefit = False), OneVsRestClassifier(single_classifier))
 
 #classifier = make_pipeline(SelectFromModel(ExtraTreesClassifier(), prefit = False), single_classifier)
@@ -373,7 +378,8 @@ else:
         return np.array(list(res))
 #    cross_validation.cross_val_score = cross_val_score_one_vs_all_per_class
 
-    scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring=f1_scorer_no_average, cv=3)# 'f1_weighted')
+    scores = cross_validation.cross_val_score(classifier, learn_data, labels, scoring=f1_scorer_no_average, cv=10)# 'f1_weighted')
+    scores = np.array(list(scores))
     import IPython; IPython.embed()
     print "Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2)
 
